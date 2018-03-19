@@ -17,6 +17,7 @@ import de.howaner.movieproxy.util.HttpFile;
 import de.howaner.movieproxy.util.HttpUtils;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.handler.codec.http.DefaultHttpContent;
 import io.netty.handler.codec.http.DefaultHttpResponse;
 import io.netty.handler.codec.http.HttpContent;
@@ -25,6 +26,7 @@ import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.codec.http.LastHttpContent;
+import io.netty.util.concurrent.GenericFutureListener;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -47,13 +49,17 @@ public class HttpConnection implements RequestBytesCallback {
 	@Getter private FileInformation fileInfo;
 	private long offset;
 
-	public void close(CloseReason reason) {
+	public void close(CloseReason reason, boolean instantClose) {
 		if (this.closed)
 			return;
 
 		this.closed = true;
-		if (this.connection != null)
-			this.connection.getChannel().close();
+		if (this.connection != null) {
+			if (instantClose)
+				this.connection.getChannel().close();
+			else
+				this.connection.getChannel().config().setAutoRead(false);
+		}
 
 		if (this.contentReceiver != null)
 			this.contentReceiver.dispose(this);
@@ -122,9 +128,9 @@ public class HttpConnection implements RequestBytesCallback {
 
 		HttpContent content = new DefaultHttpContent(buffer);
 		HttpConnection.this.getConnection().getChannel().write(response);
-		HttpConnection.this.getConnection().getChannel().write(content);
+		HttpConnection.this.getConnection().getChannel().write(content).addListener(ChannelFutureListener.CLOSE);
 		HttpConnection.this.getConnection().getChannel().flush();
-		this.close(CloseReason.Finished);
+		this.close(CloseReason.Finished, false);
 	}
 
 	private void handleDataRequest(HttpRequest req) throws IOException {
@@ -167,9 +173,9 @@ public class HttpConnection implements RequestBytesCallback {
 
 		HttpContent content = new DefaultHttpContent(buf);
 		HttpConnection.this.getConnection().getChannel().write(response);
-		HttpConnection.this.getConnection().getChannel().write(content);
+		HttpConnection.this.getConnection().getChannel().write(content).addListener(ChannelFutureListener.CLOSE);
 		HttpConnection.this.getConnection().getChannel().flush();
-		this.close(CloseReason.Finished);
+		this.close(CloseReason.Finished, false);
 	}
 
 	private void handleUploadRequest(HttpRequest req) throws IOException {
@@ -215,8 +221,8 @@ public class HttpConnection implements RequestBytesCallback {
 		response.headers().set(HttpHeaders.CONNECTION, "close");
 		response.headers().set(HttpHeaders.SERVER, "MovieProxy");
 		response.headers().set(HttpHeaders.LOCATION, "/proxy/" + identifier + ".mp4");
-		this.connection.getChannel().writeAndFlush(response);
-		this.close(CloseReason.Finished);
+		this.connection.getChannel().writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
+		this.close(CloseReason.Finished, false);
 	}
 
 	private void closeWithErrorResponse(CloseReason reason, String message) {
@@ -232,9 +238,9 @@ public class HttpConnection implements RequestBytesCallback {
 		HttpContent content = new DefaultHttpContent(buf);
 
 		this.connection.getChannel().write(response);
-		this.connection.getChannel().write(content);
+		this.connection.getChannel().write(content).addListener(ChannelFutureListener.CLOSE);
 		this.connection.getChannel().flush();
-		this.close(reason);
+		this.close(reason, false);
 	}
 
 	public void receivedFromServer(Object msg) throws IOException {
@@ -300,8 +306,8 @@ public class HttpConnection implements RequestBytesCallback {
 
 	@Override
 	public void onFinish() {
-		this.getConnection().getChannel().writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT);
-		this.close(CloseReason.Finished);
+		this.getConnection().getChannel().writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT).addListener(ChannelFutureListener.CLOSE);
+		this.close(CloseReason.Finished, false);
 	}
 
 	@Override

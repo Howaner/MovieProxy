@@ -30,13 +30,13 @@ public class HttpServerConnection extends ChannelInboundHandlerAdapter {
 	@Override
 	public void channelInactive(ChannelHandlerContext ctx) throws Exception {
 		super.channelInactive(ctx);
-		this.connection.close(CloseReason.StreamClosed);
+		this.connection.close(CloseReason.StreamClosed, true);
 	}
 
 	@Override
 	public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
 		ProxyApplication.getInstance().getLogger().error("Exception from http server connection", cause);
-		this.connection.close(CloseReason.Error);
+		this.connection.close(CloseReason.Error, true);
 	}
 
 	@Override
