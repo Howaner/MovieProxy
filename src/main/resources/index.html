@@ -75,7 +75,7 @@
 
 					data.forEach(function(elem) {
 						var region = $('<li class="list-group-item">');
-						region.append('<h6 class="my-0">' + elem.saveFileName + '</h6>');
+						region.append('<h6 class="my-0"><a href="' + elem.streamingUrl + '">' + elem.saveFileName + '</a></h6>');
 						region.append('<small class="text-muted">' + elem.saveFolder + '</small>');
 						region.append('<div class="progress" style="height:20px"><div class="progress-bar" style="width:' + elem.progress + '%;height:20px"></div></div>');
 
