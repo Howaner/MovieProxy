@@ -14,7 +14,7 @@ public class HttpFile {
 	private String host;
 	private String path;
 
-	private static final Pattern URL_PATTERN = Pattern.compile("([a-zA-Z]*)://([a-zA-Z0-9.]*)/(.*)");
+	private static final Pattern URL_PATTERN = Pattern.compile("([a-zA-Z]*)://([a-zA-Z0-9.\\-_]*)/(.*)");
 
 	public static HttpFile createFromUrl(String url) {
 		Matcher matcher = URL_PATTERN.matcher(url);

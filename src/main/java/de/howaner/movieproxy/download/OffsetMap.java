@@ -13,13 +13,24 @@ public class OffsetMap {
 	}
 
 	public boolean contains(long start, long end) {
-		// TODO: Performance improvements
+		long nextOffset = start;
 
-		for (long offset = start; offset <= end; offset++) {
-			if (!this.contains(offset))
-				return false;
+		while (true) {
+			boolean changes = false;
+			for (OffsetEntry entry : this.entries) {
+				if (entry.end != 0L && nextOffset >= entry.start && nextOffset < entry.end) {
+					nextOffset = entry.end;
+					changes = true;
+				}
+			}
+
+			if (!changes)
+				break;
+
+			nextOffset += 1;
 		}
-		return true;
+
+		return (nextOffset - 1) >= end;
 	}
 
 	public long getMissingBytesAmount(long lastOffset) {

@@ -12,4 +12,6 @@ public interface RequestBytesCallback {
 
 	public void error(Exception ex);
 
+	public boolean isWritable();
+
 }

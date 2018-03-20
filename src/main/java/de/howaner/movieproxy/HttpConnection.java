@@ -26,7 +26,6 @@ import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.codec.http.LastHttpContent;
-import io.netty.util.concurrent.GenericFutureListener;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -314,6 +313,11 @@ public class HttpConnection implements RequestBytesCallback {
 	public void error(Exception ex) {
 		HttpConnection.this.closeWithErrorResponse(CloseReason.Error, "An exception occurred: " + ex.getMessage());
 		ex.printStackTrace();
+	}
+
+	@Override
+	public boolean isWritable() {
+		return this.connection.getChannel().isWritable();
 	}
 
 }

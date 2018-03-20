@@ -29,6 +29,7 @@ import lombok.Getter;
 
 public class DownloadConnection extends SimpleChannelInboundHandler<HttpObject> {
 	@Getter private volatile boolean closed = false;
+	@Getter private final long creationTime = System.currentTimeMillis();
 	private Channel channel;
 
 	private final Download download;
@@ -153,7 +154,11 @@ public class DownloadConnection extends SimpleChannelInboundHandler<HttpObject> 
 				return;
 			}
 
-			this.offset = HttpUtils.readOffset(res);
+			long offset = HttpUtils.readOffset(res);
+			if (offset != this.offset)
+				this.download.log("Download server returned other offset than expected (expected: {}, get: {})", this.offset, offset);
+			this.offset = offset;
+
 			if (this.download.getFileInfo() == null) {
 				String contentLengthStr = res.headers().get(HttpHeaders.CONTENT_LENGTH);
 				this.download.setFileInfo(new FileInformation(res.headers().get(HttpHeaders.CONTENT_TYPE), Long.parseLong(contentLengthStr) + this.offset));

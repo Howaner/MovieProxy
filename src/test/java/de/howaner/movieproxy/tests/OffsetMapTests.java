@@ -16,6 +16,8 @@ public class OffsetMapTests {
 		List<OffsetMap.OffsetEntry> missingEntries = offsetMap.searchMissingOffsets(2000L);
 		System.out.println(missingEntries);
 		assertTrue("OffsetMap with length of 2000 needs to be empty", missingEntries.isEmpty());
+		assertTrue("OffsetMap needs to have bytes 0 - 2000", offsetMap.contains(0L, 2000L));
+		assertTrue("OffsetMap needs to have bytes 900 - 2000", offsetMap.contains(900L, 2000L));
 	}
 
 	@Test
