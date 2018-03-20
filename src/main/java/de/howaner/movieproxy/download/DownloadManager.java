@@ -1,5 +1,6 @@
 package de.howaner.movieproxy.download;
 
+import com.google.common.io.Files;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import de.howaner.movieproxy.ProxyApplication;
 import de.howaner.movieproxy.util.FilePath;
@@ -7,11 +8,14 @@ import de.howaner.movieproxy.util.HttpFile;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.epoll.EpollEventLoopGroup;
 import java.io.File;
+import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import lombok.Getter;
 
 public class DownloadManager {
@@ -77,13 +81,15 @@ public class DownloadManager {
 			File cacheFile = new File(ProxyApplication.getInstance().getCachePath(), download.getIdentifier());
 			if (cacheFile.exists()) {
 				File destFile = download.getFilePath().getFile();
-				cacheFile.renameTo(destFile);
+				Files.move(cacheFile, destFile);
 
 				this.addDownloadRedirect(download.getIdentifier(), destFile);
 				download.log("Moved cache file {} to {}", cacheFile.getPath(), destFile.getPath());
 			} else {
 				download.log("Can't move file to storage because cache file doesn't exist.");
 			}
+		} catch (IOException ex) {
+			download.log("Exception while moving file", ex);
 		} finally {
 			if (lock)
 				this.downloadsLock.writeLock().unlock();
