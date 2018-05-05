@@ -62,10 +62,13 @@
 					</div>
 				</div>
 				<div class="row">
-					<h4 class="mb-3">Heruntergeladene Videos</h4>
-					<ul class="list-group mb-3" id="videos">
+					<div class="col-md-8 order-md-1">
+						<h4 class="mb-3">Heruntergeladene Videos</h4>
+						<hr class="mb-4" />
+						<ul class="list-group mb-3" id="videos">
 
-					</ul>
+						</ul>
+					</div>
 				</div>
 			</form>
 		</div>
@@ -83,12 +86,13 @@
 						var name = videoFolderEntry.folderName;
 						var videos = videoFolderEntry.videoEntries;
                         var folderInformation = $('<li class="list-group-item">');
-                        folderInformation.append('<h4 class="my-0">' + name + '</h4>');
+                        folderInformation.append('<h4 class="my-0">' + name + ' (' + videos.length +  ')</h4>');
                         videosRegion.append(folderInformation);
                         videos.forEach(function (video) {
                             var streamingUrl = '/video/' + video.folder + "/" + video.fileName;
                             var videoInformation = $('<li class="list-group-item">');
-                            videoInformation.append('<h6 class="my-0"><a href="' + streamingUrl + '">' + video.fileName + '</a></h6>');
+                            videoInformation.append('<h6 class="my-0"><a target="_blank" href="' + streamingUrl + '">' + video.fileName + '</a></h6>');
+                            videosRegion.append(videoInformation);
                         });
                     });
 				});
