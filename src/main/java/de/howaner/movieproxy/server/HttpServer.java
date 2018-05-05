@@ -20,10 +20,10 @@ public class HttpServer {
     private ChannelFuture server;
     private EventLoopGroup eventLoop;
 
-    public void startServer() {
+    public void startServer(int port) {
         this.eventLoop = new NioEventLoopGroup(2, new ThreadFactoryBuilder().setNameFormat("Http Server").setDaemon(true).build());
 
-        ProxyApplication.getInstance().getLogger().info("Start http server at 0.0.0.0:8080 ...");
+        ProxyApplication.getInstance().getLogger().info("Start http server at 0.0.0.0:" + port + " ...");
         try {
             ServerBootstrap bootstrap;
             if (Epoll.isAvailable()) {
@@ -52,7 +52,7 @@ public class HttpServer {
                         });
 
             }
-            this.server = bootstrap.bind(8080).syncUninterruptibly();
+            this.server = bootstrap.bind(port).syncUninterruptibly();
         } catch (Exception ex) {
             ProxyApplication.getInstance().getLogger().fatal("Can't start http server", ex);
         }
