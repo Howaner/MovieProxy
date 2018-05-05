@@ -7,25 +7,18 @@ import de.howaner.movieproxy.content.FileContentReceiver;
 import de.howaner.movieproxy.content.RequestBytesCallback;
 import de.howaner.movieproxy.dataresponse.DownloadsResponse;
 import de.howaner.movieproxy.dataresponse.FoldersResponse;
+import de.howaner.movieproxy.dataresponse.VideosResponse;
 import de.howaner.movieproxy.download.Download;
 import de.howaner.movieproxy.exception.InvalidRequestException;
 import de.howaner.movieproxy.server.HttpServerConnection;
-import de.howaner.movieproxy.util.CloseReason;
-import de.howaner.movieproxy.util.FileInformation;
-import de.howaner.movieproxy.util.FilePath;
-import de.howaner.movieproxy.util.HttpFile;
-import de.howaner.movieproxy.util.HttpUtils;
+import de.howaner.movieproxy.util.*;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFutureListener;
-import io.netty.handler.codec.http.DefaultHttpContent;
-import io.netty.handler.codec.http.DefaultHttpResponse;
-import io.netty.handler.codec.http.HttpContent;
-import io.netty.handler.codec.http.HttpRequest;
-import io.netty.handler.codec.http.HttpResponse;
-import io.netty.handler.codec.http.HttpResponseStatus;
-import io.netty.handler.codec.http.HttpVersion;
-import io.netty.handler.codec.http.LastHttpContent;
+import io.netty.handler.codec.http.*;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -34,290 +27,331 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 public class HttpConnection implements RequestBytesCallback {
-	@Getter private final HttpServerConnection connection;
-	@Getter private volatile boolean closed = false;
+    @Getter
+    private final HttpServerConnection connection;
+    @Getter
+    private volatile boolean closed = false;
 
-	@Getter private HttpRequest request;
+    @Getter
+    private HttpRequest request;
 
-	@Getter private ContentReceiver contentReceiver;
-	@Getter private FileInformation fileInfo;
-	private long offset;
+    @Getter
+    private ContentReceiver contentReceiver;
+    @Getter
+    private FileInformation fileInfo;
+    private long offset;
 
-	public void close(CloseReason reason, boolean instantClose) {
-		if (this.closed)
-			return;
+    public void close(CloseReason reason, boolean instantClose) {
+        if (this.closed)
+            return;
 
-		this.closed = true;
-		if (this.connection != null) {
-			if (instantClose)
-				this.connection.getChannel().close();
-			else
-				this.connection.getChannel().config().setAutoRead(false);
-		}
+        this.closed = true;
+        if (this.connection != null) {
+            if (instantClose)
+                this.connection.getChannel().close();
+            else
+                this.connection.getChannel().config().setAutoRead(false);
+        }
 
-		if (this.contentReceiver != null)
-			this.contentReceiver.dispose(this);
-	}
+        if (this.contentReceiver != null)
+            this.contentReceiver.dispose(this);
+    }
 
-	private void handleProxyRequest(HttpRequest req) throws IOException {
-		this.request = req;
-		try {
-			this.offset = HttpUtils.readOffset(req);
-		} catch (InvalidRequestException ex) {
-			ProxyApplication.getInstance().getLogger().info("Can't read offset from proxy request", ex);
-			this.closeWithErrorResponse(CloseReason.Error, "Can't read offset from proxy request");
-		}
+    private void handleProxyRequest(HttpRequest req) throws IOException {
+        this.request = req;
+        try {
+            this.offset = HttpUtils.readOffset(req);
+        } catch (InvalidRequestException ex) {
+            ProxyApplication.getInstance().getLogger().info("Can't read offset from proxy request", ex);
+            this.closeWithErrorResponse(CloseReason.Error, "Can't read offset from proxy request");
+        }
 
-		String identifier = req.uri().replace("/proxy/", "");
-		if (identifier.contains("?"))
-			identifier = identifier.substring(0, identifier.indexOf('?'));
-		if (identifier.endsWith(".mp4"))
-			identifier = identifier.substring(0, identifier.length() - ".mp4".length());
+        String identifier = req.uri().replace("/proxy/", "");
+        if (identifier.contains("?"))
+            identifier = identifier.substring(0, identifier.indexOf('?'));
+        if (identifier.endsWith(".mp4"))
+            identifier = identifier.substring(0, identifier.length() - ".mp4".length());
 
-		if (identifier.isEmpty()) {
-			this.closeWithErrorResponse(CloseReason.InvalidRequest, "Missing identifier");
-			return;
-		}
+        if (identifier.isEmpty()) {
+            this.closeWithErrorResponse(CloseReason.InvalidRequest, "Missing identifier");
+            return;
+        }
 
-		Download download = ProxyApplication.getInstance().getDownloadManager().getDownload(identifier);
-		if (download == null) {
-			File alreadyDownloadedFile = ProxyApplication.getInstance().getDownloadManager().getDownloadRedirect(identifier);
-			if (alreadyDownloadedFile != null) {
-				ProxyApplication.getInstance().getLogger().info("Started file redirect streaming with file {} and identifier {}", alreadyDownloadedFile.getPath(), identifier);
-				this.contentReceiver = new FileContentReceiver(alreadyDownloadedFile);
-				this.contentReceiver.requestBytes(this.offset, this, this);
-			} else {
-				this.closeWithErrorResponse(CloseReason.InvalidRequest, "Download with identiifer " + identifier + " doesn't exists.");
-			}
-		} else {
-			this.contentReceiver = download;
-			this.contentReceiver.requestBytes(this.offset, this, this);
-		}
-	}
+        Download download = ProxyApplication.getInstance().getDownloadManager().getDownload(identifier);
+        if (download == null) {
+            File alreadyDownloadedFile = ProxyApplication.getInstance().getDownloadManager().getDownloadRedirect(identifier);
+            if (alreadyDownloadedFile != null) {
+                ProxyApplication.getInstance().getLogger().info("Started file redirect streaming with file {} and identifier {}", alreadyDownloadedFile.getPath(), identifier);
+                this.contentReceiver = new FileContentReceiver(alreadyDownloadedFile);
+                this.contentReceiver.requestBytes(this.offset, this, this);
+            } else {
+                this.closeWithErrorResponse(CloseReason.InvalidRequest, "Download with identiifer " + identifier + " doesn't exists.");
+            }
+        } else {
+            this.contentReceiver = download;
+            this.contentReceiver.requestBytes(this.offset, this, this);
+        }
+    }
 
-	private void sendInternalFileRequest(String filePath) throws IOException {
-		InputStream stream = ProxyApplication.class.getResourceAsStream(filePath);
-		if (stream == null) {
-			this.closeWithErrorResponse(CloseReason.InvalidRequest, "File not found");
-			return;
-		}
+    private void handleVideoRequest(HttpRequest req) throws IOException {
+        this.request = req;
+        try {
+            this.offset = HttpUtils.readOffset(req);
+        } catch (InvalidRequestException ex) {
+            ProxyApplication.getInstance().getLogger().info("Can't read offset from proxy request", ex);
+            this.closeWithErrorResponse(CloseReason.Error, "Can't read offset from proxy request");
+        }
 
-		ByteBuf buffer = this.connection.getChannel().alloc().buffer(Constants.HTTP_INITIAL_RESOURCES_BUFFER_SIZE);
-		String contentType = HttpUtils.getContentType(filePath);
+        final String[] data = req.uri().replace("/video/", "").split("/", 2);
+        String identifier = URLDecoder.decode(data[1], "UTF-8");
+        String folder = URLDecoder.decode(data[0], "UTF-8");
+        if (identifier.contains("?"))
+            identifier = identifier.substring(0, identifier.indexOf('?'));
+        if (identifier.endsWith(".mp4"))
+            identifier = identifier.substring(0, identifier.length() - ".mp4".length());
 
-		int readNum;
-		byte[] readBuf = new byte[1024];
-		while ((readNum = stream.read(readBuf, 0, readBuf.length)) != -1) {
-			buffer.writeBytes(readBuf, 0, readNum);
-		}
-		stream.close();
+        if (identifier.isEmpty()) {
+            this.closeWithErrorResponse(CloseReason.InvalidRequest, "Missing identifier");
+            return;
+        }
 
-		HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
-		if (contentType != null)
-			response.headers().set(HttpHeaders.CONTENT_TYPE, contentType);
-		response.headers().set(HttpHeaders.CONNECTION, "close");
-		response.headers().set(HttpHeaders.SERVER, "MovieProxy");
-		response.headers().set(HttpHeaders.CONTENT_LENGTH, buffer.readableBytes());
-		response.headers().set(HttpHeaders.CACHE_CONTROL, "public, max-age=86400");
+        File video = DownloadedFileUtil.getDownloadedFile(folder, identifier);
+        if (video != null) {
+            ProxyApplication.getInstance().getLogger().info("Started file redirect streaming for file {} from folder {}", video.getPath(), folder);
+            this.contentReceiver = new FileContentReceiver(video);
+            this.contentReceiver.requestBytes(this.offset, this, this);
+        } else {
+            this.closeWithErrorResponse(CloseReason.InvalidRequest, "File  " + identifier + " doesn't exists.");
+        }
+    }
 
-		HttpContent content = new DefaultHttpContent(buffer);
-		HttpConnection.this.getConnection().getChannel().write(response);
-		HttpConnection.this.getConnection().getChannel().write(content).addListener(ChannelFutureListener.CLOSE);
-		HttpConnection.this.getConnection().getChannel().flush();
-		this.close(CloseReason.Finished, false);
-	}
+    private void sendInternalFileRequest(String filePath) throws IOException {
+        InputStream stream = ProxyApplication.class.getResourceAsStream(filePath);
+        if (stream == null) {
+            this.closeWithErrorResponse(CloseReason.InvalidRequest, "File not found");
+            return;
+        }
 
-	private void handleDataRequest(HttpRequest req) throws IOException {
-		String path = (req.uri().length() >= 7 ? req.uri().substring("/data/".length()) : "");
-		String responseText;
-		String contentType;
+        ByteBuf buffer = this.connection.getChannel().alloc().buffer(Constants.HTTP_INITIAL_RESOURCES_BUFFER_SIZE);
+        String contentType = HttpUtils.getContentType(filePath);
 
-		if (path.contains("?"))
-			path = path.substring(0, path.indexOf('?'));
+        int readNum;
+        byte[] readBuf = new byte[1024];
+        while ((readNum = stream.read(readBuf, 0, readBuf.length)) != -1) {
+            buffer.writeBytes(readBuf, 0, readNum);
+        }
+        stream.close();
 
-		switch (path.toLowerCase()) {
-			case "folders.json":
-			{
-				List<FoldersResponse.FolderEntry> responseEntries = FoldersResponse.createFolderEntries();
-				responseText = ProxyApplication.getInstance().getGson().toJson(responseEntries);
-				contentType = "application/json; charset=utf-8";
-				break;
-			}
-			case "downloads.json":
-			{
-				List<DownloadsResponse.DownloadEntry> responseEntries = DownloadsResponse.createDownloadsResponse();
-				responseText = ProxyApplication.getInstance().getGson().toJson(responseEntries);
-				contentType = "application/json; charset=utf-8";
-				break;
-			}
-			default:
-				this.closeWithErrorResponse(CloseReason.InvalidRequest, "Not supported data request");
-				return;
-		}
+        HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
+        if (contentType != null)
+            response.headers().set(HttpHeaders.CONTENT_TYPE, contentType);
+        response.headers().set(HttpHeaders.CONNECTION, "close");
+        response.headers().set(HttpHeaders.SERVER, "MovieProxy");
+        response.headers().set(HttpHeaders.CONTENT_LENGTH, buffer.readableBytes());
+        response.headers().set(HttpHeaders.CACHE_CONTROL, "public, max-age=86400");
 
-		ByteBuf buf = Unpooled.copiedBuffer(responseText, Charsets.UTF_8);
+        HttpContent content = new DefaultHttpContent(buffer);
+        HttpConnection.this.getConnection().getChannel().write(response);
+        HttpConnection.this.getConnection().getChannel().write(content).addListener(ChannelFutureListener.CLOSE);
+        HttpConnection.this.getConnection().getChannel().flush();
+        this.close(CloseReason.Finished, false);
+    }
 
-		HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
-		if (contentType != null)
-			response.headers().set(HttpHeaders.CONTENT_TYPE, contentType);
-		response.headers().set(HttpHeaders.CONNECTION, "close");
-		response.headers().set(HttpHeaders.SERVER, "MovieProxy");
-		response.headers().set(HttpHeaders.CONTENT_LENGTH, buf.readableBytes());
-		response.headers().set(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+    private void handleDataRequest(HttpRequest req) throws IOException {
+        String path = (req.uri().length() >= 7 ? req.uri().substring("/data/".length()) : "");
+        String responseText;
+        String contentType;
 
-		HttpContent content = new DefaultHttpContent(buf);
-		HttpConnection.this.getConnection().getChannel().write(response);
-		HttpConnection.this.getConnection().getChannel().write(content).addListener(ChannelFutureListener.CLOSE);
-		HttpConnection.this.getConnection().getChannel().flush();
-		this.close(CloseReason.Finished, false);
-	}
+        if (path.contains("?"))
+            path = path.substring(0, path.indexOf('?'));
 
-	private void handleUploadRequest(HttpRequest req) throws IOException {
-		int beginIndex = req.uri().indexOf('?');
-		if (beginIndex == -1) {
-			this.closeWithErrorResponse(CloseReason.InvalidRequest, "Missing get data");
-			return;
-		}
+        switch (path.toLowerCase()) {
+            case "folders.json": {
+                List<FoldersResponse.FolderEntry> responseEntries = FoldersResponse.createFolderEntries();
+                responseText = ProxyApplication.getInstance().getGson().toJson(responseEntries);
+                contentType = "application/json; charset=utf-8";
+                break;
+            }
+            case "downloads.json": {
+                List<DownloadsResponse.DownloadEntry> responseEntries = DownloadsResponse.createDownloadsResponse();
+                responseText = ProxyApplication.getInstance().getGson().toJson(responseEntries);
+                contentType = "application/json; charset=utf-8";
+                break;
+            }
+            case "videos.json": {
+                List<VideosResponse.VideoFolderEntry> responseEntries = VideosResponse.createVideosResponse();
+                responseText = ProxyApplication.getInstance().getGson().toJson(responseEntries);
+                contentType = "application/json; charset=utf-8";
+                break;
+            }
+            default:
+                this.closeWithErrorResponse(CloseReason.InvalidRequest, "Not supported data request");
+                return;
+        }
 
-		Map<String, String> data = new HashMap<>();
-		String[] split = req.uri().substring(beginIndex + 1).split("&");
+        ByteBuf buf = Unpooled.copiedBuffer(responseText, Charsets.UTF_8);
 
-		for (String part : split) {
-			int seperator = part.indexOf('=');
-			if (seperator == -1)
-				continue;
+        HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
+        if (contentType != null)
+            response.headers().set(HttpHeaders.CONTENT_TYPE, contentType);
+        response.headers().set(HttpHeaders.CONNECTION, "close");
+        response.headers().set(HttpHeaders.SERVER, "MovieProxy");
+        response.headers().set(HttpHeaders.CONTENT_LENGTH, buf.readableBytes());
+        response.headers().set(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
 
-			String key = part.substring(0, seperator);
-			String value = part.substring(seperator + 1);
+        HttpContent content = new DefaultHttpContent(buf);
+        HttpConnection.this.getConnection().getChannel().write(response);
+        HttpConnection.this.getConnection().getChannel().write(content).addListener(ChannelFutureListener.CLOSE);
+        HttpConnection.this.getConnection().getChannel().flush();
+        this.close(CloseReason.Finished, false);
+    }
 
-			data.put(key, URLDecoder.decode(value, "UTF-8"));
-		}
+    private void handleUploadRequest(HttpRequest req) throws IOException {
+        int beginIndex = req.uri().indexOf('?');
+        if (beginIndex == -1) {
+            this.closeWithErrorResponse(CloseReason.InvalidRequest, "Missing get data");
+            return;
+        }
 
-		String filename = data.get("filename");
-		String url = data.get("url");
-		String savepath = data.get("savepath");
-		if (filename == null || url == null || savepath == null || filename.isEmpty() || url.isEmpty() || savepath.isEmpty()) {
-			this.closeWithErrorResponse(CloseReason.InvalidRequest, "Missing parameters");
-			return;
-		}
+        Map<String, String> data = new HashMap<>();
+        String[] split = req.uri().substring(beginIndex + 1).split("&");
 
-		HttpFile httpFile = HttpFile.createFromUrl(url);
-		if (httpFile == null) {
-			this.closeWithErrorResponse(CloseReason.InvalidRequest, "Streaming url is invalid.");
-			return;
-		}
+        for (String part : split) {
+            int seperator = part.indexOf('=');
+            if (seperator == -1)
+                continue;
 
-		String identifier = UUID.randomUUID().toString().substring(0, 8);
-		Download download = ProxyApplication.getInstance().getDownloadManager().createDownload(identifier, new FilePath(filename, savepath), httpFile);
-		download.startDownloadConnection(0L, 0L);
+            String key = part.substring(0, seperator);
+            String value = part.substring(seperator + 1);
 
-		HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.TEMPORARY_REDIRECT);
-		response.headers().set(HttpHeaders.CONNECTION, "close");
-		response.headers().set(HttpHeaders.SERVER, "MovieProxy");
-		response.headers().set(HttpHeaders.LOCATION, "/proxy/" + identifier + ".mp4");
-		this.connection.getChannel().writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
-		this.close(CloseReason.Finished, false);
-	}
+            data.put(key, URLDecoder.decode(value, "UTF-8"));
+        }
 
-	private void closeWithErrorResponse(CloseReason reason, String message) {
-		byte[] encodedMsg = message.getBytes(Charsets.UTF_8);
+        String filename = data.get("filename");
+        String url = data.get("url");
+        String savepath = data.get("savepath");
+        if (filename == null || url == null || savepath == null || filename.isEmpty() || url.isEmpty() || savepath.isEmpty()) {
+            this.closeWithErrorResponse(CloseReason.InvalidRequest, "Missing parameters");
+            return;
+        }
 
-		HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, reason.getHttpResponseStatus());
-		response.headers().set(HttpHeaders.CONTENT_TYPE, "text/html");
-		response.headers().set(HttpHeaders.CONTENT_LENGTH, encodedMsg.length);
-		response.headers().set(HttpHeaders.CONNECTION, "close");
-		response.headers().set(HttpHeaders.SERVER, "MovieProxy");
+        HttpFile httpFile = HttpFile.createFromUrl(url);
+        if (httpFile == null) {
+            this.closeWithErrorResponse(CloseReason.InvalidRequest, "Streaming url is invalid.");
+            return;
+        }
 
-		ByteBuf buf = Unpooled.wrappedBuffer(encodedMsg);
-		HttpContent content = new DefaultHttpContent(buf);
+        String identifier = UUID.randomUUID().toString().substring(0, 8);
+        Download download = ProxyApplication.getInstance().getDownloadManager().createDownload(identifier, new FilePath(filename, savepath), httpFile);
+        download.startDownloadConnection(0L, 0L);
 
-		this.connection.getChannel().write(response);
-		this.connection.getChannel().write(content).addListener(ChannelFutureListener.CLOSE);
-		this.connection.getChannel().flush();
-		this.close(reason, false);
-	}
+        HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.TEMPORARY_REDIRECT);
+        response.headers().set(HttpHeaders.CONNECTION, "close");
+        response.headers().set(HttpHeaders.SERVER, "MovieProxy");
+        response.headers().set(HttpHeaders.LOCATION, "/proxy/" + identifier + ".mp4");
+        this.connection.getChannel().writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
+        this.close(CloseReason.Finished, false);
+    }
 
-	public void receivedFromServer(Object msg) throws IOException {
-		if (this.closed)
-			return;
+    private void closeWithErrorResponse(CloseReason reason, String message) {
+        byte[] encodedMsg = message.getBytes(Charsets.UTF_8);
 
-		if (msg instanceof HttpRequest) {
-			HttpRequest req = (HttpRequest) msg;
-			ProxyApplication.getInstance().getLogger().info("Received request " + req.uri());
+        HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, reason.getHttpResponseStatus());
+        response.headers().set(HttpHeaders.CONTENT_TYPE, "text/html");
+        response.headers().set(HttpHeaders.CONTENT_LENGTH, encodedMsg.length);
+        response.headers().set(HttpHeaders.CONNECTION, "close");
+        response.headers().set(HttpHeaders.SERVER, "MovieProxy");
 
-			if (req.uri().startsWith("/proxy")) {
-				this.handleProxyRequest(req);
-			} else if (req.uri().startsWith("/assets")) {
-				String filePath = req.uri().replace("..", "");
-				if (filePath.contains("?"))
-					filePath = filePath.substring(0, filePath.indexOf('?'));
-				this.sendInternalFileRequest(filePath);
-			} else if (req.uri().equals("/") || req.uri().startsWith("/index")) {
-				this.sendInternalFileRequest("/index.html");
-			} else if (req.uri().startsWith("/data")) {
-				this.handleDataRequest(req);
-			} else if (req.uri().startsWith("/upload")) {
-				this.handleUploadRequest(req);
-			} else {
-				// Not yet implemented
-				this.closeWithErrorResponse(CloseReason.InvalidRequest, "Invalid url");
-			}
-		}
-	}
+        ByteBuf buf = Unpooled.wrappedBuffer(encodedMsg);
+        HttpContent content = new DefaultHttpContent(buf);
 
-	@Override
-	public void onStart(FileInformation fileInfo) {
-		this.fileInfo = fileInfo;
-		ProxyApplication.getInstance().getLogger().info("Started file streaming.");
+        this.connection.getChannel().write(response);
+        this.connection.getChannel().write(content).addListener(ChannelFutureListener.CLOSE);
+        this.connection.getChannel().flush();
+        this.close(reason, false);
+    }
 
-		HttpResponseStatus responseStatus = (HttpConnection.this.offset == 0L ? HttpResponseStatus.OK : HttpResponseStatus.PARTIAL_CONTENT);
-		HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, responseStatus);
+    public void receivedFromServer(Object msg) throws IOException {
+        if (this.closed)
+            return;
 
-		response.headers().set(HttpHeaders.CONTENT_TYPE, fileInfo.getContentType());
-		response.headers().set(HttpHeaders.CONNECTION, "keep-alive");
-		response.headers().set(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS, "Range");
-		response.headers().set(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, "Accept-Ranges,Content-Encoding,Content-Length,Content-Range");
-		response.headers().set(HttpHeaders.SERVER, "MovieProxy");
+        if (msg instanceof HttpRequest) {
+            HttpRequest req = (HttpRequest) msg;
+            ProxyApplication.getInstance().getLogger().info("Received request " + req.uri());
 
-		if (responseStatus == HttpResponseStatus.OK) {
-			response.headers().set(HttpHeaders.CONTENT_LENGTH, fileInfo.getContentLength());
-			response.headers().set(HttpHeaders.ACCEPT_RANGES, "bytes");
-		} else {
-			response.headers().set(HttpHeaders.CONTENT_LENGTH, fileInfo.getContentLength() - this.offset);
-			response.headers().set(HttpHeaders.CONTENT_RANGE, String.format("bytes %d-%d/%d", HttpConnection.this.offset, fileInfo.getContentLength() - 1L, fileInfo.getContentLength()));
-		}
+            if (req.uri().startsWith("/proxy")) {
+                this.handleProxyRequest(req);
+            } else if (req.uri().startsWith("/video")) {
+                this.handleVideoRequest(req);
+            } else if (req.uri().startsWith("/assets")) {
+                String filePath = req.uri().replace("..", "");
+                if (filePath.contains("?"))
+                    filePath = filePath.substring(0, filePath.indexOf('?'));
+                this.sendInternalFileRequest(filePath);
+            } else if (req.uri().equals("/") || req.uri().startsWith("/index")) {
+                this.sendInternalFileRequest("/index.html");
+            } else if (req.uri().startsWith("/data")) {
+                this.handleDataRequest(req);
+            } else if (req.uri().startsWith("/upload")) {
+                this.handleUploadRequest(req);
+            } else {
+                // Not yet implemented
+                this.closeWithErrorResponse(CloseReason.InvalidRequest, "Invalid url");
+            }
+        }
+    }
 
-		HttpConnection.this.getConnection().getChannel().writeAndFlush(response);
-	}
+    @Override
+    public void onStart(FileInformation fileInfo) {
+        this.fileInfo = fileInfo;
+        ProxyApplication.getInstance().getLogger().info("Started file streaming.");
 
-	@Override
-	public void onData(byte[] data) {
-		HttpContent content = new DefaultHttpContent(Unpooled.wrappedBuffer(data));
-		HttpConnection.this.getConnection().getChannel().writeAndFlush(content);
+        HttpResponseStatus responseStatus = (HttpConnection.this.offset == 0L ? HttpResponseStatus.OK : HttpResponseStatus.PARTIAL_CONTENT);
+        HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, responseStatus);
 
-		HttpConnection.this.offset += data.length;
-	}
+        response.headers().set(HttpHeaders.CONTENT_TYPE, fileInfo.getContentType());
+        response.headers().set(HttpHeaders.CONNECTION, "keep-alive");
+        response.headers().set(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS, "Range");
+        response.headers().set(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, "Accept-Ranges,Content-Encoding,Content-Length,Content-Range");
+        response.headers().set(HttpHeaders.SERVER, "MovieProxy");
 
-	@Override
-	public void onFinish() {
-		this.getConnection().getChannel().writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT).addListener(ChannelFutureListener.CLOSE);
-		this.close(CloseReason.Finished, false);
-	}
+        if (responseStatus == HttpResponseStatus.OK) {
+            response.headers().set(HttpHeaders.CONTENT_LENGTH, fileInfo.getContentLength());
+            response.headers().set(HttpHeaders.ACCEPT_RANGES, "bytes");
+        } else {
+            response.headers().set(HttpHeaders.CONTENT_LENGTH, fileInfo.getContentLength() - this.offset);
+            response.headers().set(HttpHeaders.CONTENT_RANGE, String.format("bytes %d-%d/%d", HttpConnection.this.offset, fileInfo.getContentLength() - 1L, fileInfo.getContentLength()));
+        }
 
-	@Override
-	public void error(Exception ex) {
-		HttpConnection.this.closeWithErrorResponse(CloseReason.Error, "An exception occurred: " + ex.getMessage());
-		ex.printStackTrace();
-	}
+        HttpConnection.this.getConnection().getChannel().writeAndFlush(response);
+    }
 
-	@Override
-	public boolean isWritable() {
-		return this.connection.getChannel().isWritable();
-	}
+    @Override
+    public void onData(byte[] data) {
+        HttpContent content = new DefaultHttpContent(Unpooled.wrappedBuffer(data));
+        HttpConnection.this.getConnection().getChannel().writeAndFlush(content);
+
+        HttpConnection.this.offset += data.length;
+    }
+
+    @Override
+    public void onFinish() {
+        this.getConnection().getChannel().writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT).addListener(ChannelFutureListener.CLOSE);
+        this.close(CloseReason.Finished, false);
+    }
+
+    @Override
+    public void error(Exception ex) {
+        HttpConnection.this.closeWithErrorResponse(CloseReason.Error, "An exception occurred: " + ex.getMessage());
+        ex.printStackTrace();
+    }
+
+    @Override
+    public boolean isWritable() {
+        return this.connection.getChannel().isWritable();
+    }
 
 }

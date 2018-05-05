@@ -4,7 +4,7 @@
 		<script src="assets/js/jquery-3.3.1.min.js"></script>
 		<script src="assets/js/gijgo.min.js"></script>
 		<link rel="stylesheet" href="assets/css/gijgo.min.css" />
-		
+
 		<!--<script src="assets/js/bootstrap.min.js" crossorigin="anonymous"></script>-->
 		<title>MovieProxy</title>
 	</head>
@@ -61,10 +61,38 @@
 						<button class="btn btn-primary btn-lg btn-block" type="submit">Download!</button>
 					</div>
 				</div>
+				<div class="row">
+					<h4 class="mb-3">Heruntergeladene Videos</h4>
+					<ul class="list-group mb-3" id="videos">
+
+					</ul>
+				</div>
 			</form>
 		</div>
 
 		<script type="text/javascript">
+			function renderDownloadedFiles() {
+				$.ajax({
+					url: 'data/videos.json',
+					cache: false
+				}).done(function(data) {
+				    var videosRegion = $("#videos");
+				    videosRegion.empty();
+
+				    data.forEach(function (videoFolderEntry) {
+						var name = videoFolderEntry.folderName;
+						var videos = videoFolderEntry.videoEntries;
+                        var folderInformation = $('<li class="list-group-item">');
+                        folderInformation.append('<h4 class="my-0">' + name + '</h4>');
+                        videosRegion.append(folderInformation);
+                        videos.forEach(function (video) {
+                            var streamingUrl = '/video/' + video.folder + "/" + video.fileName;
+                            var videoInformation = $('<li class="list-group-item">');
+                            videoInformation.append('<h6 class="my-0"><a href="' + streamingUrl + '">' + video.fileName + '</a></h6>');
+                        });
+                    });
+				});
+            }
 			function updateDownloads() {
 				$.ajax({
 					url: 'data/downloads.json',
@@ -84,6 +112,7 @@
 
 					$("#downloadsAmount").html(data.length);
 				});
+				renderDownloadedFiles();
 			}
 
 			$(function() {
