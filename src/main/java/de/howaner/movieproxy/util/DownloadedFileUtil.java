@@ -10,12 +10,12 @@ public final class DownloadedFileUtil {
     }
 
     public static File[] getDownloadedVideos(final File folder) {
-        return folder.listFiles();
+        return orderFiles(folder.listFiles());
     }
 
     public static File[] getDownloadedVideos(final String folderName) {
         final File folder = getFolderByName(folderName);
-        return getDownloadedVideos(folder);
+        return orderFiles(getDownloadedVideos(folder));
     }
 
     public static File getFolderByName(final String folderName) {
@@ -31,10 +31,15 @@ public final class DownloadedFileUtil {
         final File[] files = storage.listFiles();
         if (files == null)
             return new File[0];
-        return files;
+        return orderFiles(files);
     }
 
     public static File getDownloadedFile(final String folder, final String name) {
         return Arrays.stream(getDownloadedVideos(folder)).filter(file -> file.getName().equalsIgnoreCase(name)).findFirst().orElse(null);
+    }
+
+    private static File[] orderFiles(final File[] files) {
+        Arrays.sort(files);
+        return files;
     }
 }
