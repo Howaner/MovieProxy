@@ -101,6 +101,40 @@ public class HttpConnection implements RequestBytesCallback {
 		}
 	}
 
+	private void handleCancelRequest(HttpRequest req) throws IOException {
+		this.request = req;
+
+		String identifier = req.uri().substring("/cancel/".length());
+		if (identifier.isEmpty()) {
+			this.closeWithErrorResponse(CloseReason.InvalidRequest, "Missing identifier");
+			return;
+		}
+
+		Download download = ProxyApplication.getInstance().getDownloadManager().getDownload(identifier);
+		if (download == null) {
+			this.closeWithErrorResponse(CloseReason.Error, "Download not found");
+			return;
+		}
+
+		ProxyApplication.getInstance().getDownloadManager().cancelDownload(download);
+
+		byte[] message = "Download cancelled.".getBytes(Charsets.UTF_8);
+
+		HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
+		response.headers().set(HttpHeaders.CONTENT_TYPE, "text/plain");
+		response.headers().set(HttpHeaders.CONNECTION, "close");
+		response.headers().set(HttpHeaders.SERVER, "MovieProxy");
+		response.headers().set(HttpHeaders.CONTENT_LENGTH, message.length);
+		response.headers().set(HttpHeaders.CACHE_CONTROL, "public, max-age=86400");
+		response.headers().set(HttpHeaders.CONTENT_ENCODING, "UTF-8");
+
+		HttpContent content = new DefaultHttpContent(Unpooled.wrappedBuffer(message));
+		HttpConnection.this.getConnection().getChannel().write(response);
+		HttpConnection.this.getConnection().getChannel().write(content).addListener(ChannelFutureListener.CLOSE);
+		HttpConnection.this.getConnection().getChannel().flush();
+		this.close(CloseReason.Finished, false);
+	}
+
 	private void handleMovieRequest(HttpRequest req) throws IOException {
 		this.request = req;
 		try {
@@ -301,6 +335,8 @@ public class HttpConnection implements RequestBytesCallback {
 
 			if (req.uri().startsWith("/proxy")) {
 				this.handleProxyRequest(req);
+			} else if (req.uri().startsWith("/cancel/")) {
+				this.handleCancelRequest(req);
 			} else if (req.uri().startsWith("/movie/")) {
 				this.handleMovieRequest(req);
 			} else if (req.uri().startsWith("/assets")) {

@@ -14,7 +14,7 @@ public class DownloadsResponse {
 		try {
 			ProxyApplication.getInstance().getDownloadManager().getDownloadsLock().readLock().lock();
 			for (Download download : ProxyApplication.getInstance().getDownloadManager().getDownloads()) {
-				DownloadEntry entry = new DownloadEntry(download.getFilePath().getFileName(), download.getFilePath().getPath(), "/proxy/" + download.getIdentifier() + ".mp4");
+				DownloadEntry entry = new DownloadEntry(download.getFilePath().getFileName(), download.getFilePath().getPath(), "/proxy/" + download.getIdentifier() + ".mp4", "/cancel/" + download.getIdentifier());
 
 				if (download.getFileInfo() != null) {
 					entry.maxBytes = download.getFileInfo().getContentLength();
@@ -36,6 +36,7 @@ public class DownloadsResponse {
 		private final String saveFileName;
 		private final String saveFolder;
 		private final String streamingUrl;
+		private final String cancelUrl;
 		private long downloadedBytes;
 		private long maxBytes;
 		private int progress;

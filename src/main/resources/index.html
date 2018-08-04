@@ -1,10 +1,14 @@
 <html>
 	<head>
+		<meta charset="UTF-8" />
 		<link rel="stylesheet" href="assets/css/bootstrap.min.css" />
+		<link rel="stylesheet" href="assets/css/gijgo.min.css" />
+		<link rel="stylesheet" href="assets/css/style.css?v=2" />
+		<link rel="stylesheet" href="assets/css/sweetalert2.min.css" />
+
 		<script src="assets/js/jquery-3.3.1.min.js"></script>
 		<script src="assets/js/gijgo.min.js"></script>
-		<link rel="stylesheet" href="assets/css/gijgo.min.css" />
-		<link rel="stylesheet" href="assets/css/style.css?v=1" />
+		<script src="assets/js/sweetalert2.min.js"></script>
 
 		<title>MovieProxy</title>
 	</head>
@@ -26,8 +30,11 @@
 						</h4>
 
 						<ul class="list-group mb-3" id="downloads">
-							<!--<li class="list-group-item">
-								<h6 class="my-0">S01E01.mp4</h6>
+							<!--<li class="list-group-item clearfix">
+								<span class="float-right">
+									<a onclick="cancelDownload('/Animes/Black Clover/S01E01.mp4', 'cancel/abc')" class="cancel-download">X</a>
+								</span>
+								<h6 class="mb-1">S01E01.mp4</h6>
 								<small class="text-muted">/Animes/Black Clover</small>
 								<div class="progress" style="height:20px">
 									<div class="progress-bar" style="width:40%;height:20px"></div>
@@ -79,6 +86,7 @@
 
 					data.forEach(function(elem) {
 						var region = $('<li class="list-group-item">');
+						region.append('<span class="float-right"><a onclick="cancelDownload(\'' + elem.saveFolder + '/' + elem.saveFileName + '\', \'' + elem.cancelUrl + '\')" class="cancel-download">X</a></span>');
 						region.append('<h6 class="my-0"><a href="' + elem.streamingUrl + '">' + elem.saveFileName + '</a></h6>');
 						region.append('<small class="text-muted">' + elem.saveFolder + '</small>');
 						region.append('<div class="progress" style="height:20px"><div class="progress-bar" style="width:' + elem.progress + '%;height:20px"></div></div>');
@@ -136,6 +144,28 @@
 				updateDownloads();
 				setInterval(updateDownloads, 5000);
 			});
+
+			function cancelDownload(fullPath, cancelUrl) {
+				swal({
+					title: 'Bist du sicher?',
+					html: 'Soll der Download von <b>' + fullPath + '</b> wirklich abgebrochen werden?',
+					type: 'warning',
+					showCancelButton: true,
+					confirmButtonColor: '#3085d6',
+					cancelButtonColor: '#d33',
+					confirmButtonText: 'Löschen'
+				}).then(result => {
+					if (result.value) {
+						$.get(cancelUrl, function(data) {
+							swal('Abgebrochen', 'Der Download wurde abgebrochen.', 'success');
+						}).fail(function(xhr) {
+							swal('Fehler', 'Ein Fehler ist aufgetreten.<br>' + xhr.responseText, 'error');
+						}).always(function() {
+							updateDownloads();
+						});
+					}
+				});
+			}
 		</script>
 	</body>
 </html>

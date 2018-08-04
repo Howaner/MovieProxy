@@ -13,3 +13,13 @@
 .container {
 	margin-bottom: 20px;
 }
+
+.cancel-download {
+	color: black;
+	cursor: pointer;
+}
+.cancel-download:hover {
+	text-decoration: none;
+	font-weight: bold;
+	color: red;
+}
