@@ -4,6 +4,7 @@
 		<script src="assets/js/jquery-3.3.1.min.js"></script>
 		<script src="assets/js/gijgo.min.js"></script>
 		<link rel="stylesheet" href="assets/css/gijgo.min.css" />
+		<link rel="stylesheet" href="assets/css/style.css?v=1" />
 
 		<title>MovieProxy</title>
 	</head>
@@ -53,6 +54,11 @@
 							<h4 class="mb-3">Speicherpfad</h4>
 							<!--<input type="hidden" name="savepath" id="savepath" />-->
 							<input type="text" name="savepath" id="savepath" style="display: none" /> <!-- Use type="text" instead of hidden that chrome restores the field after page switch -->
+
+							<div id="spinner">
+								<img src="assets/img/spinner.svg" width="64" height="64" />
+							</div>
+
 							<div id="tree"></div>
 						</div>
 						<hr class="mb-4" />
@@ -102,10 +108,13 @@
 					$('#savepath').val('');
 				});
 
-				// Restore last path selection
 				var cachedPath = $("#savepath").val();
-				if (cachedPath) {
-					tree.on('dataBound', function(e, node, id) {
+
+				tree.on('dataBound', function(e, node, id) {
+					$("#spinner").hide();
+
+					// Restore last path selection
+					if (cachedPath) {
 						var node = tree.getNodeById(cachedPath);
 						if (node) {
 							tree.select(node);
@@ -122,8 +131,8 @@
 								}
 							}
 						}
-					});
-				}
+					}
+				});
 
 				updateDownloads();
 				setInterval(updateDownloads, 5000);

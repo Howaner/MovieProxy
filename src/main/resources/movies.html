@@ -6,11 +6,12 @@
 		<script src="assets/js/jquery-3.3.1.min.js"></script>
 		<script src="assets/js/gijgo.min.js"></script>
 		<link rel="stylesheet" href="assets/css/gijgo.min.css" />
+		<link rel="stylesheet" href="assets/css/style.css?v=1" />
 
 		<title>MovieProxy</title>
 	</head>
 	<body class="bg-light">
-		<div class="container" style="margin-bottom: 20px">
+		<div class="container">
 			<div class="py-5 text-center">
 				<img class="d-block mx-auto mb-4" src="assets/img/logo.png" alt="" width="94" height="94" />
 				<h2>Movie Proxy</h2>
@@ -21,6 +22,10 @@
 			<div class="row">
 				<div class="col-md-12 order-md-1">
 					<div class="container-fluid root-container">
+						<div id="spinner" style="height: 200px">
+							<img src="assets/img/spinner.svg" width="64" height="64" />
+						</div>
+
 						<div id="tree"></div>
 					</div>
 
@@ -49,10 +54,13 @@
 					$('#moviepath').val('');
 				});
 
-				// Restore last path selection
 				var cachedPath = $("#moviepath").val();
-				if (cachedPath) {
-					tree.on('dataBound', function(e, node, id) {
+
+				tree.on('dataBound', function(e, node, id) {
+					$("#spinner").hide();
+
+					// Restore last path selection
+					if (cachedPath) {
 						var node = tree.getNodeById(cachedPath);
 						if (node) {
 							tree.select(node);
@@ -69,8 +77,8 @@
 								}
 							}
 						}
-					});
-				}
+					}
+				});
 
 				$("#submit_button").click(function() {
 					var moviePath = $("#moviepath").val();

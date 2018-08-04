@@ -1,0 +1,15 @@
+#spinner {
+	width: 100%;
+	background-color: white;
+	height: 100px;
+	display: flex;
+	align-items: center;
+}
+
+#spinner img {
+	margin: 0 auto;
+}
+
+.container {
+	margin-bottom: 20px;
+}
