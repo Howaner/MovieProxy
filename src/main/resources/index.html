@@ -4,13 +4,12 @@
 		<script src="assets/js/jquery-3.3.1.min.js"></script>
 		<script src="assets/js/gijgo.min.js"></script>
 		<link rel="stylesheet" href="assets/css/gijgo.min.css" />
-		
-		<!--<script src="assets/js/bootstrap.min.js" crossorigin="anonymous"></script>-->
+
 		<title>MovieProxy</title>
 	</head>
 	<body class="bg-light">
 		<div class="container">
-			<form method="get" action="/upload">
+			<form method="get" action="/upload" class="needs-validation">
 				<div class="py-5 text-center">
 					<img class="d-block mx-auto mb-4" src="assets/img/logo.png" alt="" width="94" height="94" />
 					<h2>Movie Proxy</h2>
@@ -37,23 +36,22 @@
 
 					<div class="col-md-8 order-md-1">
 						<h4 class="mb-3">Dateidownload</h4>
-						<form class="needs-validation" novalidate>
-							<div class="md-3">
-								<label for="filename">Dateiname</label>
-								<input type="text" class="form-control" id="filename" name="filename" placeholder="" value="" required>
-								<div class="invalid-feedback" style="width: 100%">Der Dateiname wird benötigt.</div>
-							</div>
-							<div class="md-3">
-								<label for="url">Stream URL</label>
-								<input type="text" class="form-control" id="url" name="url" placeholder="" value="" required>
-								<div class="invalid-feedback" style="width: 100%">Die Stream URL wird benötigt.</div>
-							</div>
-						</form>
+						<div class="md-3">
+							<label for="filename">Dateiname</label>
+							<input type="text" class="form-control" id="filename" name="filename" placeholder="" value="" required />
+							<div class="invalid-feedback" style="width: 100%">Der Dateiname wird benötigt.</div>
+						</div>
+						<div class="md-3">
+							<label for="url">Stream URL</label>
+							<input type="text" class="form-control" id="url" name="url" placeholder="" value="" required />
+							<div class="invalid-feedback" style="width: 100%">Die Stream URL wird benötigt.</div>
+						</div>
 
 						<hr class="mb-4" />
 						<div class="container-fluid">
 							<h4 class="mb-3">Speicherpfad</h4>
-							<input type="hidden" name="savepath" id="savepath" />
+							<!--<input type="hidden" name="savepath" id="savepath" />-->
+							<input type="text" name="savepath" id="savepath" style="display: none" /> <!-- Use type="text" instead of hidden that chrome restores the field after page switch -->
 							<div id="tree"></div>
 						</div>
 						<hr class="mb-4" />
@@ -87,6 +85,8 @@
 			}
 
 			$(function() {
+				console.log($('#savepath').val());
+				
 				// http://gijgo.com/tree/demos/bootstrap-4-treeview
 				var tree = $('#tree').tree({
 					uiLibrary: 'bootstrap4',
@@ -100,6 +100,29 @@
 				tree.on('unselect', function(e, node, id) {
 					$('#savepath').val('');
 				});
+
+				// Restore last path selection
+				var cachedPath = $("#savepath").val();
+				if (cachedPath) {
+					tree.on('dataBound', function(e, node, id) {
+						var node = tree.getNodeById($('#savepath').val());
+						if (node) {
+							tree.select(node);
+
+							// Expand all parent nodes from the selected node
+							var parentNode = $(node[0].parentNode).closest('li');
+							while (parentNode.length !== 0) {
+								var parentTreeNode = tree.getNodeById(parentNode.attr('data-id'));
+								if (parentTreeNode) {
+									tree.expand(parentTreeNode);
+									parentNode = $(parentNode[0].parentNode).closest('li');
+								} else {
+									break;
+								}
+							}
+						}
+					});
+				}
 
 				updateDownloads();
 				setInterval(updateDownloads, 5000);
