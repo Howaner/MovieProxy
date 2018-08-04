@@ -6,6 +6,7 @@ import de.howaner.movieproxy.util.FileInformation;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.nio.file.Files;
 
 public class FileContentReceiver implements ContentReceiver {
 	private final File file;
@@ -16,12 +17,16 @@ public class FileContentReceiver implements ContentReceiver {
 		this.file = file;
 		this.reader = new RandomAccessFile(file, "r");
 
-		this.fileInfo = new FileInformation("video/mp4", this.reader.length());
+		String contentType = Files.probeContentType(file.toPath());
+		if (contentType == null)
+			contentType = "video/mp4";
+
+		this.fileInfo = new FileInformation(contentType, this.reader.length());
 	}
 
 	@Override
 	public void requestBytes(long offset, HttpConnection connection, RequestBytesCallback callback) {
-		callback.onStart(fileInfo);
+		callback.onStart(this.fileInfo);
 
 		try {
 			this.reader.seek(offset);

@@ -3,7 +3,9 @@ package de.howaner.movieproxy.dataresponse;
 import de.howaner.movieproxy.ProxyApplication;
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 import lombok.Builder;
 import lombok.Data;
 
@@ -25,13 +27,13 @@ public class FoldersResponse {
 					.text(file.getName())
 					.population(file.lastModified() / 1000L)
 					.checked(false)
-					.hasChildren(false)
 					.build();
 			entry.children = createFolderEntries(entry.identifier, file);
+			entry.hasChildren = !entry.children.isEmpty();
 			list.add(entry);
 		}
 
-		return list;
+		return list.stream().sorted(Comparator.comparingLong((FolderEntry x) -> x.population).reversed()).collect(Collectors.toList());
 	}
 
 	@Data

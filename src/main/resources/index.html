@@ -14,6 +14,7 @@
 					<img class="d-block mx-auto mb-4" src="assets/img/logo.png" alt="" width="94" height="94" />
 					<h2>Movie Proxy</h2>
 					<p class="lead">Lade jetzt ein Video herunter!</p>
+					<a href="movies"><button class="btn btn-secondary" type="button">Bereits heruntergeladene Videos</button></a>
 				</div>
 
 				<div class="row">
@@ -105,7 +106,7 @@
 				var cachedPath = $("#savepath").val();
 				if (cachedPath) {
 					tree.on('dataBound', function(e, node, id) {
-						var node = tree.getNodeById($('#savepath').val());
+						var node = tree.getNodeById(cachedPath);
 						if (node) {
 							tree.select(node);
 

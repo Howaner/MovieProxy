@@ -7,6 +7,7 @@ import de.howaner.movieproxy.content.FileContentReceiver;
 import de.howaner.movieproxy.content.RequestBytesCallback;
 import de.howaner.movieproxy.dataresponse.DownloadsResponse;
 import de.howaner.movieproxy.dataresponse.FoldersResponse;
+import de.howaner.movieproxy.dataresponse.MoviesResponse;
 import de.howaner.movieproxy.download.Download;
 import de.howaner.movieproxy.exception.InvalidRequestException;
 import de.howaner.movieproxy.server.HttpServerConnection;
@@ -100,6 +101,43 @@ public class HttpConnection implements RequestBytesCallback {
 		}
 	}
 
+	private void handleMovieRequest(HttpRequest req) throws IOException {
+		this.request = req;
+		try {
+			this.offset = HttpUtils.readOffset(req);
+		} catch (InvalidRequestException ex) {
+			ProxyApplication.getInstance().getLogger().info("Can't read offset from proxy request", ex);
+			this.closeWithErrorResponse(CloseReason.Error, "Can't read offset from proxy request");
+		}
+
+		String identifier = req.uri().replace("/movie/", "");
+		if (identifier.contains("?"))
+			identifier = identifier.substring(0, identifier.indexOf('?'));
+		identifier = URLDecoder.decode(identifier, "UTF-8");
+		identifier = identifier.replace("../", "").replace("..\\", "");
+
+		if (identifier.isEmpty()) {
+			this.closeWithErrorResponse(CloseReason.InvalidRequest, "Missing identifier");
+			return;
+		}
+
+		File file = new File(ProxyApplication.getInstance().getStoragePath(), identifier);
+		if (!file.getPath().startsWith(ProxyApplication.getInstance().getStoragePath().getPath())) {
+			this.closeWithErrorResponse(CloseReason.InvalidRequest, "Invalid identifier! Attempt to break out of the storage folder ...");
+			return;
+		}
+		String filePath = file.getPath().substring(ProxyApplication.getInstance().getStoragePath().getPath().length());
+
+		if (!file.isFile()) {
+			this.closeWithErrorResponse(CloseReason.InvalidRequest, "Invalid file. A file with the path " + filePath + " doesn't exists or is not a file.");
+			return;
+		}
+
+		ProxyApplication.getInstance().getLogger().info("Started direct file streaming with file {}", filePath);
+		this.contentReceiver = new FileContentReceiver(file);
+		this.contentReceiver.requestBytes(this.offset, this, this);
+	}
+
 	private void sendInternalFileRequest(String filePath) throws IOException {
 		InputStream stream = ProxyApplication.class.getResourceAsStream(filePath);
 		if (stream == null) {
@@ -124,6 +162,9 @@ public class HttpConnection implements RequestBytesCallback {
 		response.headers().set(HttpHeaders.SERVER, "MovieProxy");
 		response.headers().set(HttpHeaders.CONTENT_LENGTH, buffer.readableBytes());
 		response.headers().set(HttpHeaders.CACHE_CONTROL, "public, max-age=86400");
+
+		if (contentType != null && contentType.equals("text/html"))
+			response.headers().set(HttpHeaders.CONTENT_ENCODING, "UTF-8");
 
 		HttpContent content = new DefaultHttpContent(buffer);
 		HttpConnection.this.getConnection().getChannel().write(response);
@@ -151,6 +192,13 @@ public class HttpConnection implements RequestBytesCallback {
 			case "downloads.json":
 			{
 				List<DownloadsResponse.DownloadEntry> responseEntries = DownloadsResponse.createDownloadsResponse();
+				responseText = ProxyApplication.getInstance().getGson().toJson(responseEntries);
+				contentType = "application/json; charset=utf-8";
+				break;
+			}
+			case "movies.json":
+			{
+				List<MoviesResponse.MovieEntry> responseEntries = MoviesResponse.createMovieEntries();
 				responseText = ProxyApplication.getInstance().getGson().toJson(responseEntries);
 				contentType = "application/json; charset=utf-8";
 				break;
@@ -252,6 +300,8 @@ public class HttpConnection implements RequestBytesCallback {
 
 			if (req.uri().startsWith("/proxy")) {
 				this.handleProxyRequest(req);
+			} else if (req.uri().startsWith("/movie/")) {
+				this.handleMovieRequest(req);
 			} else if (req.uri().startsWith("/assets")) {
 				String filePath = req.uri().replace("..", "");
 				if (filePath.contains("?"))
@@ -259,6 +309,8 @@ public class HttpConnection implements RequestBytesCallback {
 				this.sendInternalFileRequest(filePath);
 			} else if (req.uri().equals("/") || req.uri().startsWith("/index")) {
 				this.sendInternalFileRequest("/index.html");
+			} else if (req.uri().startsWith("/movies")) {
+				this.sendInternalFileRequest("/movies.html");
 			} else if (req.uri().startsWith("/data")) {
 				this.handleDataRequest(req);
 			} else if (req.uri().startsWith("/upload")) {

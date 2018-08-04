@@ -28,12 +28,6 @@ public class DownloadsResponse {
 			ProxyApplication.getInstance().getDownloadManager().getDownloadsLock().readLock().unlock();
 		}
 
-		/*DownloadEntry test = new DownloadEntry("Test.mp4", "/Animes/Test", "http://google.de");
-		test.downloadedBytes = 1000L;
-		test.maxBytes = 2000L;
-		test.progress = 50;
-		list.add(test);*/
-
 		return list;
 	}
 
