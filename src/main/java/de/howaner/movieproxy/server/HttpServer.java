@@ -7,9 +7,12 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.epoll.Epoll;
 import io.netty.channel.epoll.EpollEventLoopGroup;
 import io.netty.channel.epoll.EpollServerSocketChannel;
+import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
+import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.http.HttpServerCodec;
 import lombok.Getter;
 
@@ -18,13 +21,16 @@ public class HttpServer {
 	private EventLoopGroup eventLoop;
 
 	public void startServer() {
-		this.eventLoop = new EpollEventLoopGroup(2, new ThreadFactoryBuilder().setNameFormat("Http Server").setDaemon(true).build());
+		if (Epoll.isAvailable())
+			this.eventLoop = new EpollEventLoopGroup(2, new ThreadFactoryBuilder().setNameFormat("Epoll Http Server").setDaemon(true).build());
+		else
+			this.eventLoop = new NioEventLoopGroup(2, new ThreadFactoryBuilder().setNameFormat("Nio Http Server").setDaemon(true).build());
 
 		ProxyApplication.getInstance().getLogger().info("Start http server at 0.0.0.0:8080 ...");
 		try {
 			ServerBootstrap bootstrap = new ServerBootstrap()
 					.group(this.eventLoop)
-					.channel(EpollServerSocketChannel.class)
+					.channel(Epoll.isAvailable() ? EpollServerSocketChannel.class : NioServerSocketChannel.class)
 					.childHandler(new ChannelInitializer<SocketChannel>() {
 						@Override
 						protected void initChannel(SocketChannel channel) throws Exception {

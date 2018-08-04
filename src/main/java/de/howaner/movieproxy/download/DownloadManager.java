@@ -6,7 +6,9 @@ import de.howaner.movieproxy.ProxyApplication;
 import de.howaner.movieproxy.util.FilePath;
 import de.howaner.movieproxy.util.HttpFile;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.epoll.Epoll;
 import io.netty.channel.epoll.EpollEventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
 import java.io.File;
 import java.io.IOException;
 import java.util.Collection;
@@ -14,8 +16,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import lombok.Getter;
 
 public class DownloadManager {
@@ -27,7 +27,9 @@ public class DownloadManager {
 	private final Map<String, File> downloadRedirects = new HashMap<>();
 
 	public DownloadManager() {
-		this.eventLoop = new EpollEventLoopGroup(2, new ThreadFactoryBuilder().setNameFormat("Http Client").setDaemon(true).build());
+		this.eventLoop = Epoll.isAvailable()
+				? new EpollEventLoopGroup(2, new ThreadFactoryBuilder().setNameFormat("Epoll Http Client").setDaemon(true).build())
+				: new NioEventLoopGroup(2, new ThreadFactoryBuilder().setNameFormat("Nio Http Client").setDaemon(true).build());
 
 		this.dlThread = new DownloadThread(this);
 		this.dlThread.start();

@@ -11,8 +11,10 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.channel.epoll.Epoll;
 import io.netty.channel.epoll.EpollSocketChannel;
 import io.netty.channel.socket.SocketChannel;
+import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.http.DefaultHttpRequest;
 import io.netty.handler.codec.http.HttpClientCodec;
 import io.netty.handler.codec.http.HttpContent;
@@ -100,7 +102,7 @@ public class DownloadConnection extends SimpleChannelInboundHandler<HttpObject> 
 
 		new Bootstrap()
 				.group(ProxyApplication.getInstance().getDownloadManager().getEventLoop())
-				.channel(EpollSocketChannel.class)
+				.channel(Epoll.isAvailable() ? EpollSocketChannel.class : NioSocketChannel.class)
 				.handler(new ChannelInitializer<SocketChannel>() {
 						@Override
 						protected void initChannel(SocketChannel channel) throws Exception {
