@@ -217,6 +217,7 @@ public class HttpConnection implements RequestBytesCallback {
 		response.headers().set(HttpHeaders.SERVER, "MovieProxy");
 		response.headers().set(HttpHeaders.CONTENT_LENGTH, buf.readableBytes());
 		response.headers().set(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+		response.headers().set(HttpHeaders.CACHE_CONTROL, "no-cache");
 
 		HttpContent content = new DefaultHttpContent(buf);
 		HttpConnection.this.getConnection().getChannel().write(response);
