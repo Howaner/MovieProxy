@@ -1,6 +1,7 @@
 package de.howaner.movieproxy;
 
 import com.google.gson.Gson;
+import de.howaner.movieproxy.content.FileContentReceiverManager;
 import de.howaner.movieproxy.download.DownloadManager;
 import de.howaner.movieproxy.server.HttpServer;
 import java.io.File;
@@ -11,7 +12,8 @@ import org.apache.logging.log4j.Logger;
 public class ProxyApplication {
 	@Getter private static ProxyApplication instance;
 
-	@Getter private DownloadManager downloadManager = new DownloadManager();
+	@Getter private final DownloadManager downloadManager = new DownloadManager();
+	@Getter private final FileContentReceiverManager fileContentReceiverManager = new FileContentReceiverManager();
 	@Getter private final Logger logger;
 	@Getter private final Gson gson;
 
@@ -52,6 +54,8 @@ public class ProxyApplication {
 
 		HttpServer server = new HttpServer();
 		server.startServer();
+
+		this.fileContentReceiverManager.start();
 
 		// Wait until stop
 		try {
