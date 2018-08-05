@@ -3,7 +3,7 @@
 		<meta charset="UTF-8" />
 		<link rel="stylesheet" href="assets/css/bootstrap.min.css" />
 		<link rel="stylesheet" href="assets/css/gijgo.min.css" />
-		<link rel="stylesheet" href="assets/css/style.css?v=2" />
+		<link rel="stylesheet" href="assets/css/style.css?v=3" />
 		<link rel="stylesheet" href="assets/css/sweetalert2.min.css" />
 
 		<script src="assets/js/jquery-3.3.1.min.js"></script>
@@ -35,10 +35,12 @@
 									<a onclick="cancelDownload('/Animes/Black Clover/S01E01.mp4', 'cancel/abc')" class="cancel-download">X</a>
 								</span>
 								<h6 class="mb-1">S01E01.mp4</h6>
-								<small class="text-muted">/Animes/Black Clover</small>
+								<small class="text-muted download-folder">/Animes/Black Clover</small><br />
 								<div class="progress" style="height:20px">
-									<div class="progress-bar" style="width:40%;height:20px"></div>
+									<div class="progress-bar" style="width:10%;height:20px">10%</div>
 								</div>
+								<small class="download-progress">2.3 / 30.0 MB</small>
+								<div class="clearfix"></div>
 							</li>-->
 						</ul>
 					</div>
@@ -85,11 +87,16 @@
 					downloadsRegion.empty();
 
 					data.forEach(function(elem) {
+						var downloadedMbytes = (elem.downloadedBytes / 1024 / 1024).toFixed(1);
+						var maxMbytes = (elem.maxBytes / 1024 / 1024).toFixed(1);
+
 						var region = $('<li class="list-group-item">');
 						region.append('<span class="float-right"><a onclick="cancelDownload(\'' + elem.saveFolder + '/' + elem.saveFileName + '\', \'' + elem.cancelUrl + '\')" class="cancel-download">X</a></span>');
 						region.append('<h6 class="my-0"><a href="' + elem.streamingUrl + '">' + elem.saveFileName + '</a></h6>');
-						region.append('<small class="text-muted">' + elem.saveFolder + '</small>');
-						region.append('<div class="progress" style="height:20px"><div class="progress-bar" style="width:' + elem.progress + '%;height:20px"></div></div>');
+						region.append('<small class="text-muted download-folder">' + elem.saveFolder + '</small>');
+						region.append('<div class="progress" style="height:20px"><div class="progress-bar" style="width:' + elem.progress + '%;height:20px">' + elem.progress + '%</div></div>');
+						region.append('<small class="download-progress">' + downloadedMbytes + ' / ' + maxMbytes + ' MB</small>');
+						region.append('<div class="clearfix"></div>');
 
 						downloadsRegion.append(region);
 					});

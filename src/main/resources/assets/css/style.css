@@ -23,3 +23,13 @@
 	font-weight: bold;
 	color: red;
 }
+
+#downloads h6 {
+	word-wrap: break-word;
+}
+#downloads .download-folder {
+	word-wrap: break-word;
+}
+#downloads .download-progress {
+	float: right;
+}
