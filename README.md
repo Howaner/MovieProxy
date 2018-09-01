@@ -11,7 +11,7 @@ Sobald die Software gestartet wird, wird ein HTTP Server auf Port 8080 gestartet
 ## Download
 
 Die Software kann auf meinem Jenkins heruntergeladen werden oder selbst kompiliert werden.  
-Download: https://ci.howaner.de/job/MovieProxy/
+Download: https://ci.howaner.de/job/MovieProxy/  
 Mehr Informationen auf der [Homepage](https://www.movieproxy.de/installation/).
 
 ## Kompilierung
