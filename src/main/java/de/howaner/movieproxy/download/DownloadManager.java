@@ -80,6 +80,8 @@ public class DownloadManager {
 			lock = this.downloadsLock.writeLock().tryLock();
 			this.downloads.remove(download.getIdentifier());
 
+			download.finish();
+
 			File cacheFile = new File(ProxyApplication.getInstance().getCachePath(), download.getIdentifier());
 			if (cacheFile.exists()) {
 				File destFile = download.getFilePath().getFile();
